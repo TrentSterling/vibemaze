@@ -1,0 +1,558 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- SEO, Metadata & Fonts -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeMaze by Tront (Trent Sterling)</title>
+    <meta name="description" content="VibeMaze is a 3D maze game rendered entirely in ASCII characters, running in your browser. A vanilla JavaScript & HTML prototype by Trent Sterling (Tront), vibe-coded with Gemini.">
+    <meta name="keywords" content="Trent Sterling, Tront, ASCII, gamedev, javascript, 3d maze, web game, prototype, game development, procedural generation, Gemini, AI, vibe coding, vibemaze">
+    <link rel="canonical" href="https://tront.xyz/vibemaze/" />
+    <!-- No favicon link to avoid potential errors -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <style>
+        :root {
+            --bg-color: #0d0f14;
+            --surface-color: #1a1c23;
+            --border-color: #30363d;
+            --text-color: #e0e0e0;
+            --text-muted: #8b949e;
+            --accent-purple: #c874e8;
+            --accent-teal: #2ee6d7;
+            --font-display: 'Fira Code', monospace;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        @keyframes pulse-glow {
+            from { border-color: var(--accent-purple); box-shadow: 0 0 20px -5px rgba(200, 116, 232, 0.4); }
+            to { border-color: #a15fba; box-shadow: 0 0 35px 0px rgba(200, 116, 232, 0.7); }
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-body), sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1.5rem;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        .main-header { text-align: center; margin-bottom: 1.5rem; }
+        .header-logo { width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--border-color); margin-bottom: 1rem; transition: transform 0.3s ease; }
+        .header-logo:hover { transform: scale(1.1); }
+        .main-header h1 { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 2.8rem); margin: 0; color: var(--accent-purple); text-shadow: 0 0 15px rgba(200, 116, 232, 0.5); }
+
+        #gameContainer { text-align: center; }
+        /* MODIFICATION: Pointer lock message now toggles content and visibility class */
+        #pointerLockMessage {
+            color: yellow;
+            font-size: 14px;
+            min-height: 1.5em; /* Reserve space to prevent layout shift */
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px #000;
+            visibility: visible; /* Default visible */
+            opacity: 1;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #pointerLockMessage.hidden {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+
+        #gameScreen {
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre;
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 1.0;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            background-color: #000;
+            color: #eee;
+            width: calc(120 * 0.6em);
+            height: calc(60 * 1.0em);
+            box-sizing: content-box;
+            overflow: hidden;
+            margin: 0 auto;
+            box-shadow: 0 0 25px rgba(0,0,0,0.5);
+        }
+        #gameMessages { margin-top: 10px; font-size: 14px; min-height: 20px; color: var(--text-muted); font-weight: 500; }
+        
+        .score-display {
+            color: var(--accent-teal);
+            font-weight: bold;
+            text-shadow: 0 0 8px var(--accent-teal);
+            margin-left: 15px;
+        }
+
+        .info-box {
+            background-color: var(--surface-color);
+            border: 2px solid var(--accent-purple);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin-top: 2rem;
+            max-width: 70ch;
+            text-align: center;
+            font-size: 14px;
+            color: #ccc;
+            line-height: 1.6;
+            animation: pulse-glow 3s infinite alternate ease-in-out;
+        }
+        .info-box a { color: var(--accent-teal); text-decoration: none; font-weight: bold; transition: color 0.3s, text-shadow 0.3s; }
+        .info-box a:hover { color: #fff; text-shadow: 0 0 8px var(--accent-teal); }
+
+        footer { text-align: center; padding-top: 2.5rem; color: var(--text-muted); font-size: .9rem; }
+        footer a { color: var(--accent-purple); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+
+<body>
+    <header class="main-header">
+        <a href="https://tront.xyz/" target="_blank" rel="noopener noreferrer">
+            <img src="https://blog.tront.xyz/assets/img/tront.png" alt="Tront Logo" class="header-logo">
+        </a>
+        <h1>VibeMaze</h1>
+    </header>
+
+    <div id="gameContainer">
+        <!-- MODIFICATION: Pointer lock message now toggles content and visibility class -->
+        <div id="pointerLockMessage">Click screen to lock mouse for looking!</div>
+        <div id="gameScreen">Loading...</div>
+        <div id="gameMessages"></div>
+    </div>
+
+    <div class="info-box">
+        <p>A 3D maze game rendered entirely in ASCII characters, running in your browser. This technical prototype was built with vanilla JavaScript to explore 3D rasterization, collision, and lighting in a constrained environment.</p>
+        <p>This project was vibe-coded with Gemini by <a href="https://tront.xyz" target="_blank" rel="noopener noreferrer">Tront (Trent Sterling)</a>.</p>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Trent Sterling. Visit my main hub at <a href="https://tront.xyz/" target="_blank" rel="noopener noreferrer">tront.xyz</a> or check out my code on <a href="https://github.com/TrentSterling" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
+    </footer>
+
+    <script>
+        // ==================================================================
+        // SECTION 1: Configuration Constants
+        // ==================================================================
+        const SCREEN_WIDTH = 120;
+        const SCREEN_HEIGHT = 60;
+        const FONT_ASPECT_RATIO = 0.6;
+        const ASPECT_RATIO = (SCREEN_WIDTH * FONT_ASPECT_RATIO) / SCREEN_HEIGHT;
+        const FOV_RADIANS = Math.PI / 2.5;
+        const NEAR_PLANE = 0.5; 
+        const FAR_PLANE = 100.0;
+        const SHADE_CHARS = ['.', ',', '-', '_', '=', '+', 'o', '*', '#', '%', '@'];
+        const MOVE_SPEED = 0.15;
+        const MOUSE_SENSITIVITY = 0.002;
+        const TARGET_FPS = 60;
+        const TARGET_FRAME_TIME_MS = 1000 / TARGET_FPS;
+        const PLAYER_BASE_Y = 0.0;
+        const PLAYER_HEIGHT = 0.5;
+        const PLAYER_RADIUS = 0.3; // Correct player radius for collision
+        const FLOOR_Y = -0.5;
+        const MIN_CAMERA_Y = FLOOR_Y + 0.1;
+        const CUBE_SIZE = 1.0;
+        const MAP_SCALE = 2.0;
+        const COLLECT_DISTANCE = 0.7;
+        const COLLECTIBLE_FLASH_SPEED = 8.0; 
+        const LIGHT_ANIMATION_SPEED = 0.0; // Global light is static
+        
+        // MODIFICATION: Player light parameters for torch-like effect, correctly defined here
+        const PLAYER_LIGHT_BASE_RADIUS = 10.0; 
+        const PLAYER_LIGHT_BASE_INTENSITY = 0.5; 
+        const PLAYER_LIGHT_FLICKER_SPEED = 20.0; 
+        const PLAYER_LIGHT_FLICKER_AMOUNT = 0.2; 
+        const PLAYER_LIGHT_PULSE_RADIUS_AMOUNT = 1.0; 
+
+        const AMBIENT_LIGHT_LEVEL = 0.1; 
+
+        // ==================================================================
+        // SECTION 2: DOM Elements
+        // ==================================================================
+        const gameScreen = document.getElementById('gameScreen');
+        const gameMessages = document.getElementById('gameMessages');
+        const pointerLockMessage = document.getElementById('pointerLockMessage');
+
+        // ==================================================================
+        // SECTION 3: Buffers
+        // ==================================================================
+        let screenBuffer = Array(SCREEN_HEIGHT).fill(0).map(() => Array(SCREEN_WIDTH).fill(' '));
+        let zBuffer = Array(SCREEN_HEIGHT).fill(0).map(() => Array(SCREEN_WIDTH).fill(FAR_PLANE));
+
+        // ==================================================================
+        // SECTION 4: Math Primitives (Defined ONLY ONCE)
+        // ==================================================================
+        class Vec3 {
+             constructor(x = 0, y = 0, z = 0, w = 1) { this.x = x; this.y = y; this.z = z; this.w = w; }
+            static add(v1, v2) { return new Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z); }
+            static sub(v1, v2) { return new Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z); }
+            static scale(v, s) { return new Vec3(v.x * s, v.y * s, v.z * s); }
+            static dot(v1, v2) { return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z; }
+            static cross(v1, v2) { return new Vec3(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x); }
+            static normalize(v) { const l = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z); return l > 0 ? new Vec3(v.x / l, v.y / l, v.z / l) : new Vec3(); }
+            static length(v) { return Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z); }
+            static distance(v1, v2) { const dx = v1.x-v2.x; const dy = v1.y-v2.y; const dz = v1.z-v2.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
+        }
+        class Mat4 {
+             constructor() { this.m = Array(4).fill(0).map(() => Array(4).fill(0)); this.setIdentity(); }
+            setIdentity() { for(let i=0; i<4; i++) for(let j=0; j<4; j++) this.m[i][j] = (i===j) ? 1 : 0; }
+            static multiply(m1, m2) { const result = new Mat4(); for (let r = 0; r < 4; r++) { for (let c = 0; c < 4; c++) { result.m[r][c] = m1.m[r][0] * m2.m[0][c] + m1.m[r][1] * m2.m[1][c] + m1.m[r][2] * m2.m[2][c] + m1.m[r][3] * m2.m[3][c]; } } return result; }
+            static multiplyVec(m, v) { const x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0]; const y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1]; const z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + v.w * m.m[3][2]; const w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3]; return new Vec3(x, y, z, w); }
+            static makeTranslation(x, y, z) { const m = new Mat4(); m.m[3][0] = x; m.m[3][1] = y; m.m[3][2] = z; return m; }
+            static makeRotationX(angleRad) { const m = new Mat4(); m.m[1][1] = Math.cos(angleRad); m.m[1][2] = Math.sin(angleRad); m.m[2][1] = -Math.sin(angleRad); m.m[2][2] = Math.cos(angleRad); return m; }
+            static makeRotationY(angleRad) { const m = new Mat4(); m.m[0][0] = Math.cos(angleRad); m.m[0][2] = Math.sin(angleRad); m.m[2][0] = -Math.sin(angleRad); m.m[2][2] = Math.cos(angleRad); return m; }
+            static makeRotationZ(angleRad) { const m = new Mat4(); m.m[0][0] = Math.cos(angleRad); m.m[0][1] = Math.sin(angleRad); m.m[1][0] = -Math.sin(angleRad); m.m[1][1] = Math.cos(angleRad); return m; }
+            static makeProjection(fovRad, aspectRatio, near, far) { const f = 1.0 / Math.tan(fovRad / 2); const m = new Mat4(); m.m[0][0] = aspectRatio * f; m.m[1][1] = f; m.m[2][2] = (far + near) / (near - far); m.m[3][2] = (2 * far * near) / (near - far); m.m[2][3] = -1.0; m.m[3][3] = 0.0; return m; }
+            static makePointAt(pos, target, up) { const z = Vec3.normalize(Vec3.sub(target, pos)); const x = Vec3.normalize(Vec3.cross(up, z)); const y = Vec3.cross(z, x); const m = new Mat4(); m.m[0][0]=x.x; m.m[0][1]=y.x; m.m[0][2]=-z.x; m.m[0][3]=0; m.m[1][0]=x.y; m.m[1][1]=y.y; m.m[1][2]=-z.y; m.m[1][3]=0; m.m[2][0]=x.z; m.m[2][1]=y.z; m.m[2][2]=-z.z; m.m[2][3]=0; m.m[3][0]=-Vec3.dot(pos,x); m.m[3][1]=-Vec3.dot(pos,y); m.m[3][2]=Vec3.dot(pos,z); m.m[3][3]=1; return m; }
+        }
+
+        // ==================================================================
+        // SECTION 5: Geometry Definitions (Defined ONLY ONCE)
+        // ==================================================================
+        const cubeMeshData = {
+            vertices: [ new Vec3(-0.5, -0.5, -0.5), new Vec3(-0.5,  0.5, -0.5), new Vec3( 0.5,  0.5, -0.5), new Vec3( 0.5, -0.5, -0.5), new Vec3(-0.5, -0.5,  0.5), new Vec3(-0.5,  0.5,  0.5), new Vec3( 0.5,  0.5,  0.5), new Vec3( 0.5, -0.5,  0.5), ],
+             triangles: [ // CW from outside
+                 { v: [0, 1, 2] }, { v: [0, 2, 3] }, { v: [3, 2, 6] }, { v: [3, 6, 7] }, { v: [7, 6, 5] }, { v: [7, 5, 4] },
+                 { v: [4, 5, 1] }, { v: [4, 1, 0] }, { v: [1, 5, 6] }, { v: [1, 6, 2] }, { v: [4, 0, 3] }, { v: [4, 3, 7] },
+            ]
+        };
+
+        function createPlaneMeshData(width, depth, widthSegments, depthSegments, yLevel = -1.0) {
+            const vertices = []; const triangles = [];
+            const halfWidth = width / 2; const halfDepth = depth / 2;
+            const segmentWidth = width / widthSegments; const segmentDepth = depth / depthSegments;
+            for (let iz = 0; iz <= depthSegments; iz++) { const z = iz * segmentDepth - halfDepth; for (let ix = 0; ix <= widthSegments; ix++) { const x = ix * segmentWidth - halfWidth; vertices.push(new Vec3(x, yLevel, z)); } }
+            for (let iz = 0; iz < depthSegments; iz++) { for (let ix = 0; ix < widthSegments; ix++) { const a = ix + (widthSegments + 1) * iz; const b = ix + (widthSegments + 1) * (iz + 1); const c = (ix + 1) + (widthSegments + 1) * (iz + 1); const d = (ix + 1) + (widthSegments + 1) * iz; triangles.push({ v: [a, b, c] }); triangles.push({ v: [a, c, d] }); } } // CW from above
+            return { vertices, triangles };
+        }
+        
+        const pyramidMeshData = {
+             vertices: [ new Vec3(-0.5, -0.5, -0.5), new Vec3( 0.5, -0.5, -0.5), new Vec3( 0.5, -0.5,  0.5), new Vec3(-0.5, -0.5,  0.5), new Vec3( 0.0,  0.5,  0.0), ], // Apex 4
+             triangles: [ // CW from outside
+                 { v: [0, 1, 2] }, { v: [0, 2, 3] }, { v: [0, 4, 1] }, { v: [1, 4, 2] }, { v: [2, 4, 3] }, { v: [3, 4, 0] }, // Sides (CW from outside)
+             ]
+         };
+
+        // ==================================================================
+        // SECTION 6: Maze Map Definition
+        // ==================================================================
+        const mazeMap = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], [1,0,0,0,1,0,0,3,0,0,1,0,0,0,1], [1,0,1,0,1,0,1,1,1,0,1,2,1,0,1], [1,2,1,0,0,0,0,0,0,0,1,0,1,0,1], [1,0,1,1,1,1,1,0,1,0,1,0,1,0,1], [1,0,0,0,0,0,1,0,1,0,1,0,0,0,1], [1,1,1,1,1,0,1,1,1,0,1,1,1,1,1], [1,3,0,0,1,0,0,2,0,0,0,0,0,3,1], [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1], [1,0,1,0,0,0,0,0,1,0,0,2,0,0,1], [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1], [1,0,2,0,0,0,1,3,0,0,1,0,0,0,1], [1,0,1,1,1,1,1,1,1,0,1,0,1,1,1], [1,0,0,0,0,0,0,0,0,0,1,0,0,2,1], [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        ];
+        const MAP_GRID_WIDTH = mazeMap[0].length;
+        const MAP_GRID_HEIGHT = mazeMap.length;
+
+        // ==================================================================
+        // SECTION 7: Scene State Variables
+        // ==================================================================
+        let sceneObjects = [];
+        let collectibles = [];
+        let WALL_TOP_Y = 0;
+
+        // ==================================================================
+        // SECTION 8: Camera and Light State Variables
+        // ==================================================================
+        let camera = { pos: new Vec3(0, PLAYER_BASE_Y + PLAYER_HEIGHT, 0), lookDir: new Vec3(0, 0, 1), yaw: 0, pitch: 0 };
+        let lightDirection = Vec3.normalize(new Vec3(0.6, 0.8, 0.4)); // Initial light direction
+
+        // ==================================================================
+        // SECTION 9: Input Handling State and Functions
+        // ==================================================================
+        let keysPressed = {};
+        let isPointerLocked = false;
+
+        function handleMouseMove(event) {
+            if (!isPointerLocked) return;
+            const deltaX = event.movementX || 0; const deltaY = event.movementY || 0;
+            camera.yaw -= deltaX * MOUSE_SENSITIVITY;
+            camera.yaw = (camera.yaw + Math.PI * 2) % (Math.PI * 2);
+            // MODIFICATION: Inverted pitch as requested
+            camera.pitch += deltaY * MOUSE_SENSITIVITY;
+            const maxPitch = Math.PI / 2 - 0.1;
+            camera.pitch = Math.max(-maxPitch, Math.min(maxPitch, camera.pitch));
+        }
+
+        function handlePointerLockChange() {
+            if (document.pointerLockElement === gameScreen || document.pointerLockElement === document.body) {
+                isPointerLocked = true; pointerLockMessage.textContent = "Mouse locked! (Press Esc to unlock)"; pointerLockMessage.classList.remove('hidden');
+                document.addEventListener("mousemove", handleMouseMove, false);
+            } else {
+                isPointerLocked = false; pointerLockMessage.textContent = "Click screen to lock mouse for looking!"; pointerLockMessage.classList.remove('hidden');
+                document.removeEventListener("mousemove", handleMouseMove, false);
+            }
+        }
+
+        // ==================================================================
+        // SECTION 10: Input Event Listeners
+        // ==================================================================
+        document.addEventListener('keydown', (event) => { keysPressed[event.key.toLowerCase()] = true; });
+        document.addEventListener('keyup', (event) => { keysPressed[event.key.toLowerCase()] = false; });
+        document.addEventListener('pointerlockchange', handlePointerLockChange, false);
+        document.addEventListener('mozpointerlockchange', handlePointerLockChange, false);
+        document.addEventListener('webkitpointerlockchange', handlePointerLockChange, false);
+
+        gameScreen.addEventListener('click', () => {
+            gameScreen.requestPointerLock = gameScreen.requestPointerLock || gameScreen.mozRequestPointerLock || gameScreen.webkitRequestPointerLock;
+            if(gameScreen.requestPointerLock) { gameScreen.requestPointerLock(); }
+            else { console.warn("Pointer Lock API not fully supported."); pointerLockMessage.textContent = "Click failed: Pointer Lock API might not be supported."; pointerLockMessage.classList.remove('hidden'); }
+        });
+        if (!document.pointerLockElement) { pointerLockMessage.classList.remove('hidden'); } // Initial state
+
+        // ==================================================================
+        // SECTION 11: Initialization Function
+        // ==================================================================
+        function init() {
+            generateSceneFromMap();
+            console.log(`ASCII Rasterizer Initialized. ${sceneObjects.length} objects, ${collectibles.length} collectibles.`);
+        }
+
+        // ==================================================================
+        // SECTION 12: Scene Generation Function
+        // ==================================================================
+        function generateSceneFromMap() {
+            sceneObjects = []; collectibles = []; let startPosFound = false;
+            const planeMeshData = createPlaneMeshData(MAP_GRID_WIDTH * MAP_SCALE, MAP_GRID_HEIGHT * MAP_SCALE, 10, 10, FLOOR_Y); // Generate here
+            const groundPlane = { mesh: planeMeshData, position: new Vec3(0, 0, 0), rotation: new Vec3(0,0,0), scale: new Vec3(1,1,1), rotateSpeed: {x:0,y:0,z:0}, type: 'floor'};
+            sceneObjects.push(groundPlane);
+            let calculatedWallTopY = 0;
+
+            for (let mz = 0; mz < MAP_GRID_HEIGHT; mz++) {
+                for (let mx = 0; mx < MAP_GRID_WIDTH; mx++) {
+                    const worldX = (mx - (MAP_GRID_WIDTH -1) / 2) * MAP_SCALE;
+                    const worldZ = (mz - (MAP_GRID_HEIGHT-1) / 2) * MAP_SCALE;
+                    const mapValue = mazeMap[mz][mx]; let obj = null;
+                    if (mapValue === 1) {
+                        const wallScaleY = CUBE_SIZE * MAP_SCALE; const wallCenterY = FLOOR_Y + (wallScaleY / 2);
+                        obj = { mesh: cubeMeshData, position: new Vec3(worldX, wallCenterY, worldZ), rotation: new Vec3(0, 0, 0), scale: new Vec3(MAP_SCALE, wallScaleY, MAP_SCALE), rotateSpeed: { x: 0, y: 0, z: 0 }, type: 'wall' };
+                        calculatedWallTopY = wallCenterY + (wallScaleY / 2);
+                    } else if (mapValue === 2) {
+                         // MODIFICATION: Elevated and increased rotation speed
+                         obj = { mesh: cubeMeshData, position: new Vec3(worldX, FLOOR_Y + 0.6, worldZ), rotation: new Vec3(0.2, 0.3, 0.1), scale: new Vec3(0.5, 0.5, 0.5), rotateSpeed: { x: 5.0, y: 7.0, z: 3.0 }, type: 'collectible'};
+                    } else if (mapValue === 3) {
+                         // MODIFICATION: Elevated and increased rotation speed
+                         obj = { mesh: pyramidMeshData, position: new Vec3(worldX, FLOOR_Y + 0.6, worldZ), rotation: new Vec3(0.1, 0.2, 0.4), scale: new Vec3(0.6, 0.6, 0.6), rotateSpeed: { x: 2.0, y: 9.0, z: 1.0 }, type: 'collectible'};
+                    }
+                    if (obj) { sceneObjects.push(obj); if (obj.type === 'collectible') { collectibles.push(obj); } }
+                    if (!startPosFound && mapValue === 0) { camera.pos = new Vec3(worldX, FLOOR_Y + PLAYER_HEIGHT, worldZ); startPosFound = true; console.log(`Player start pos set to: (${worldX.toFixed(1)}, ${camera.pos.y.toFixed(1)}, ${worldZ.toFixed(1)})`); }
+                }
+            }
+            WALL_TOP_Y = calculatedWallTopY || FLOOR_Y + MAP_SCALE;
+             if (!startPosFound) { camera.pos = new Vec3(0, FLOOR_Y + PLAYER_HEIGHT, -5); console.warn("No empty start position found in map! Using default."); }
+        }
+
+        // ==================================================================
+        // SECTION 13: Map Collision Check Function
+        // ==================================================================
+        function isWallAtWorldPos(worldX, worldZ) {
+            const mapX = Math.round((worldX / MAP_SCALE) + (MAP_GRID_WIDTH -1) / 2);
+            const mapZ = Math.round((worldZ / MAP_SCALE) + (MAP_GRID_HEIGHT-1) / 2);
+            if (mapZ < 0 || mapZ >= MAP_GRID_HEIGHT || mapX < 0 || mapX >= MAP_GRID_WIDTH) { return true; }
+            return mazeMap[mapZ] && mazeMap[mapZ][mapX] === 1;
+        }
+
+        // ==================================================================
+        // SECTION 14: Rasterization Function
+        // ==================================================================
+        function drawTriangle(v1, v2, v3, shade) {
+             if (isNaN(v1.x) || isNaN(v1.y) || isNaN(v1.w) || isNaN(v2.x) || isNaN(v2.y) || isNaN(v2.w) || isNaN(v3.x) || isNaN(v3.y) || isNaN(v3.w)) { return; }
+             const minX = Math.max(0, Math.floor(Math.min(v1.x, v2.x, v3.x)));
+             const maxX = Math.min(SCREEN_WIDTH - 1, Math.ceil(Math.max(v1.x, v2.x, v3.x)));
+             const minY = Math.max(0, Math.floor(Math.min(v1.y, v2.y, v3.y)));
+             const maxY = Math.min(SCREEN_HEIGHT - 1, Math.ceil(Math.max(v1.y, v2.y, v3.y)));
+             if (minX > maxX || minY > maxY) { return; }
+             const edgeFunction = (a, b, p) => { return (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x); };
+             const area = edgeFunction(v1, v2, v3);
+             if (Math.abs(area) < 1e-6) return;
+             const invArea = 1.0 / area;
+             for (let y = minY; y <= maxY; y++) {
+                 for (let x = minX; x <= maxX; x++) {
+                     const p = { x: x + 0.5, y: y + 0.5 };
+                     let w0 = edgeFunction(v2, v3, p); let w1 = edgeFunction(v3, v1, p); let w2 = edgeFunction(v1, v2, p);
+                     const isInside = (area > 0) ? (w0 >= -1e-6 && w1 >= -1e-6 && w2 >= -1e-6) : (w0 <= 1e-6 && w1 <= 1e-6 && w2 <= 1e-6);
+                     if (isInside) {
+                         w0 *= invArea; w1 *= invArea; w2 *= invArea;
+                         const oneOverW = w0 * v1.w + w1 * v2.w + w2 * v3.w;
+                         if (oneOverW <= 1e-6) continue;
+                         const depth = 1.0 / oneOverW;
+                         if (depth >= NEAR_PLANE && depth < zBuffer[y][x]) {
+                             zBuffer[y][x] = depth;
+                             screenBuffer[y][x] = shade;
+                         }
+                     }
+                 }
+             }
+        }
+
+        // ==================================================================
+        // SECTION 15: Main Render Loop Function
+        // ==================================================================
+        let frameCount = 0;
+        let time = 0;
+        let score = 0;
+
+        function renderFrame(deltaTime) {
+             time += deltaTime;
+
+            // 1. Clear Buffers
+            for (let y = 0; y < SCREEN_HEIGHT; y++) { for (let x = 0; x < SCREEN_WIDTH; x++) { screenBuffer[y][x] = ' '; zBuffer[y][x] = FAR_PLANE; } }
+            // 2. Set up View & Projection Matrices
+            const up = new Vec3(0, 1, 0); let target = new Vec3(0,0,1);
+            const camMatRotY = Mat4.makeRotationY(camera.yaw); const camMatRotX = Mat4.makeRotationX(camera.pitch);
+            const camMatRot = Mat4.multiply(camMatRotX, camMatRotY);
+            camera.lookDir = Mat4.multiplyVec(camMatRot, target); camera.lookDir.w = 0;
+            target = Vec3.add(camera.pos, camera.lookDir);
+            const matView = Mat4.makePointAt(camera.pos, target, up);
+            const matProj = Mat4.makeProjection(FOV_RADIANS, ASPECT_RATIO, NEAR_PLANE, FAR_PLANE);
+            
+            // 3. Process Scene Objects
+            for (const obj of sceneObjects) {
+                // World Matrix
+                const matRotX = Mat4.makeRotationX(obj.rotation.x + time * obj.rotateSpeed.x);
+                const matRotY = Mat4.makeRotationY(obj.rotation.y + time * obj.rotateSpeed.y);
+                const matRotZ = Mat4.makeRotationZ(obj.rotation.z + time * obj.rotateSpeed.z);
+                const matScale = new Mat4();
+                matScale.m[0][0] = obj.scale.x; matScale.m[1][1] = obj.scale.y; matScale.m[2][2] = obj.scale.z;
+                const matTrans = Mat4.makeTranslation(obj.position.x, obj.position.y, obj.position.z);
+                let matRot = Mat4.multiply(matRotY, matRotX); matRot = Mat4.multiply(matRot, matRotZ);
+                let matWorld = Mat4.multiply(matScale, matRot); matWorld = Mat4.multiply(matWorld, matTrans);
+
+                // Process Triangles
+                for (const tri of obj.mesh.triangles) {
+                    const verts = tri.v.map(index => obj.mesh.vertices[index]);
+                    const transformed = verts.map(v => Mat4.multiplyVec(matWorld, v));
+                    const line1 = Vec3.sub(transformed[1], transformed[0]);
+                    const line2 = Vec3.sub(transformed[2], transformed[0]);
+                    let normal = Vec3.normalize(Vec3.cross(line1, line2));
+                    const viewDir = Vec3.normalize(Vec3.sub(camera.pos, transformed[0]));
+                    if (Vec3.dot(normal, viewDir) <= 0) { continue; }
+                    
+                    const viewed = transformed.map(v => Mat4.multiplyVec(matView, v));
+                    if (viewed.every(v => v.z > -NEAR_PLANE)) continue;
+                    
+                    const projected = viewed.map(v => Mat4.multiplyVec(matProj, v));
+                    const screenVerts = projected.map(v => {
+                        let w = v.w <= 1e-6 ? 1e-6 : v.w;
+                        let vx = (v.x / w); let vy = (v.y / w); // Correctly declared vx and vy here
+                        vx = (vx + 1.0) * 0.5 * SCREEN_WIDTH;
+                        vy = (1.0 - (vy + 1.0) * 0.5) * SCREEN_HEIGHT;
+                        return { x: vx, y: vy, w: 1.0 / w };
+                    });
+                    
+                    let finalLightIntensity = Math.max(AMBIENT_LIGHT_LEVEL, Vec3.dot(normal, lightDirection));
+                    
+                    // MODIFICATION: Animated Player Light Intensity and Radius
+                    const avgWorldPoint = Vec3.scale(Vec3.add(Vec3.add(transformed[0], transformed[1]), transformed[2]), 1/3);
+                    const distToPlayer = Vec3.distance(avgWorldPoint, camera.pos);
+                    
+                    // Animated radius
+                    const currentLightRadius = PLAYER_LIGHT_BASE_RADIUS + PLAYER_LIGHT_PULSE_RADIUS_AMOUNT * Math.sin(time * PLAYER_LIGHT_FLICKER_SPEED);
+                    // Animated intensity
+                    const currentLightIntensity = PLAYER_LIGHT_BASE_INTENSITY + PLAYER_LIGHT_FLICKER_AMOUNT * Math.sin(time * PLAYER_LIGHT_FLICKER_SPEED);
+
+
+                    const playerLightFactor = Math.max(0, 1 - (distToPlayer / currentLightRadius)); // Use animated radius
+                    finalLightIntensity = Math.min(1.0, finalLightIntensity + playerLightFactor * currentLightIntensity); // Use animated intensity
+
+                    const shadeIndex = Math.min(SHADE_CHARS.length - 1, Math.floor(finalLightIntensity * SHADE_CHARS.length));
+                    
+                    let shadeChar;
+                    if (obj.type === 'collectible') {
+                        const flash = Math.sin(time * COLLECTIBLE_FLASH_SPEED) > 0;
+                        shadeChar = flash ? (obj.mesh === cubeMeshData ? '■' : '▲') : SHADE_CHARS[shadeIndex];
+                    } else {
+                        shadeChar = SHADE_CHARS[shadeIndex];
+                    }
+                    drawTriangle(screenVerts[0], screenVerts[1], screenVerts[2], shadeChar);
+                }
+            }
+
+            frameCount++;
+            const screenString = screenBuffer.map(row => row.join('')).join('\n');
+            gameScreen.textContent = screenString;
+            gameMessages.innerHTML = `Use WASD/Space/Shift to move. Mouse to look. <span class="score-display">Score: ${score}</span>`;
+        }
+
+        // ==================================================================
+        // SECTION 16: Game Loop Function
+        // ==================================================================
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+             if (lastTime === 0) { lastTime = currentTime; }
+            const deltaTime = (currentTime - lastTime) / 1000.0;
+            lastTime = currentTime;
+
+            const camMatRotY = Mat4.makeRotationY(camera.yaw);
+            let baseForward = new Vec3(0, 0, 1, 0); let baseRight = new Vec3(1, 0, 0, 0);
+            const worldForward = Mat4.multiplyVec(camMatRotY, baseForward);
+            const worldRight = Mat4.multiplyVec(camMatRotY, baseRight);
+            const dt_scale = Math.min(5, deltaTime * TARGET_FPS);
+            const currentMoveSpeed = MOVE_SPEED * dt_scale;
+
+            let moveX = 0, moveZ = 0, moveY = 0;
+            if (keysPressed['w']) { moveX += worldForward.x * currentMoveSpeed; moveZ += worldForward.z * currentMoveSpeed; }
+            if (keysPressed['s']) { moveX -= worldForward.x * currentMoveSpeed; moveZ -= worldForward.z * currentMoveSpeed; }
+            if (keysPressed['a']) { moveX -= worldRight.x * currentMoveSpeed;   moveZ -= worldRight.z * currentMoveSpeed; }
+            if (keysPressed['d']) { moveX += worldRight.x * currentMoveSpeed;   moveZ += worldRight.z * currentMoveSpeed; }
+            if (keysPressed[' ']) moveY += currentMoveSpeed;
+            if (keysPressed['shift']) moveY -= currentMoveSpeed;
+
+            const checkCollision = (camera.pos.y - PLAYER_HEIGHT) < WALL_TOP_Y;
+            const currentX = camera.pos.x; const currentZ = camera.pos.z;
+            const nextPotX = currentX + moveX; const nextPotZ = currentZ + moveZ;
+            let canMoveX = true; let canMoveZ = true;
+
+            if (checkCollision && moveX !== 0) {
+                 const checkX = nextPotX + Math.sign(moveX) * PLAYER_RADIUS;
+                 if (isWallAtWorldPos(checkX, currentZ + PLAYER_RADIUS) || isWallAtWorldPos(checkX, currentZ - PLAYER_RADIUS) || isWallAtWorldPos(checkX, currentZ) ) {
+                     canMoveX = false;
+                 }
+            }
+             if (canMoveX) { camera.pos.x = nextPotX; }
+
+             if (checkCollision && moveZ !== 0) {
+                 const checkZ = nextPotZ + Math.sign(moveZ) * PLAYER_RADIUS;
+                 if (isWallAtWorldPos(camera.pos.x + PLAYER_RADIUS, checkZ) || isWallAtWorldPos(camera.pos.x - PLAYER_RADIUS, checkZ) || isWallAtWorldPos(camera.pos.x, checkZ) ) {
+                     canMoveZ = false;
+                 }
+             }
+             if (canMoveZ) { camera.pos.z = nextPotZ; }
+
+            const nextY = camera.pos.y + moveY;
+            camera.pos.y = Math.max(FLOOR_Y + PLAYER_HEIGHT, nextY);
+
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                 const collectible = collectibles[i];
+                 const dist = Vec3.distance(camera.pos, collectible.position);
+                 if (dist < COLLECT_DISTANCE) {
+                     console.log("Collected!"); score++;
+                     collectibles.splice(i, 1);
+                     const sceneIndex = sceneObjects.indexOf(collectible);
+                     if (sceneIndex > -1) { sceneObjects.splice(sceneIndex, 1); }
+                 }
+            }
+
+            renderFrame(deltaTime);
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==================================================================
+        // SECTION 17: Start Game
+        // ==================================================================
+        init();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
