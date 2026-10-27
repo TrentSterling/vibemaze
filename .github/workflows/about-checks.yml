@@ -7,14 +7,18 @@ permissions:
   contents: read
 jobs:
   about-browser-checks:
-    runs-on: ubuntu-latest
+    # Match the pinned Playwright browser's supported Linux dependencies.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: node --test tests/about-contract.cjs
+      - run: node --test tests/near-plane.cjs
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium
       - run: node tests/about-browser.cjs
