@@ -15,6 +15,7 @@ jobs:
         with:
           node-version: 22
       - run: node --test tests/about-contract.cjs
+      - run: node --test tests/near-plane.cjs
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium
       - run: node tests/about-browser.cjs
